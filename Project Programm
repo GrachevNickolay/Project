@@ -1,0 +1,94 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <dht11.h>
+
+#define DHT11_PIN 2  // Пин, к которому подключен датчик DHT11
+#define WATER_SENSOR_PIN A0  // Аналоговый пин, к которому подключен датчик уровня воды
+#define LIGHT_SENSOR_PIN A1  // Аналоговый пин, к которому подключен фоторезистор
+#define RELAY_PIN 7  // Пин, к которому подключено реле для управления насосом
+
+#define MODE_AUTO 1
+#define MODE_MANUAL_LIGHT 2
+
+dht11 DHT11;
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // Адрес дисплея и количество столбцов и строк
+
+int mode = MODE_AUTO;
+
+void setup() {
+  lcd.begin();  // Инициализация дисплея
+  pinMode(RELAY_PIN, OUTPUT);  // Установка пина реле как выход
+  Serial.begin(9600);  // Инициализация серийной связи для отладки
+}
+
+void loop() {
+  // Обработка кнопок
+  int buttonState1 = digitalRead(3); // Пин для первой кнопки
+  int buttonState2 = digitalRead(4); // Пин для второй кнопки
+  int buttonState3 = digitalRead(5); // Пин для третьей кнопки
+
+  if (buttonState1 == HIGH) {
+    mode = MODE_AUTO;
+  } else if (buttonState2 == HIGH) {
+    mode = MODE_MANUAL_LIGHT;
+  }
+
+  // Чтение показаний датчика DHT11
+  int chk = DHT11.read(DHT11_PIN);
+  float humidity = DHT11.humidity;
+  float temperature = DHT11.temperature;
+
+  // Чтение показаний датчика уровня воды
+  int waterLevel = analogRead(WATER_SENSOR_PIN);
+
+  // Чтение показаний датчика освещенности
+  int lightLevel = analogRead(LIGHT_SENSOR_PIN);
+  
+  // Вывод показаний на дисплей
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Mode: ");
+  if (mode == MODE_AUTO) {
+    lcd.print("Auto");
+  } else if (mode == MODE_MANUAL_LIGHT) {
+    lcd.print("Manual Light");
+  }
+  lcd.setCursor(0, 1);
+  lcd.print("Temp: ");
+  lcd.print(temperature);
+  lcd.print(" C");
+  lcd.setCursor(0, 2);
+  lcd.print("Humidity: ");
+  lcd.print(humidity);
+  lcd.print(" %");
+  lcd.setCursor(0, 3);
+  lcd.print("Water Level: ");
+  lcd.print(waterLevel);
+  
+  // Отправка показаний на последовательный порт для отладки
+  Serial.print("Mode: ");
+  if (mode == MODE_AUTO) {
+    Serial.println("Auto");
+  } else if (mode == MODE_MANUAL_LIGHT) {
+    Serial.println("Manual Light");
+  }
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.println(" C");
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.println(" %");
+  Serial.print("Water Level: ");
+  Serial.println(waterLevel);
+  Serial.print("Light Level: ");
+  Serial.println(lightLevel);
+  
+  // Управление насосом в автоматическом режиме
+  if (mode == MODE_AUTO && waterLevel < 500) { // Устанавливайте порог в зависимости от вашего датчика
+    digitalWrite(RELAY_PIN, HIGH);  // Включение насоса
+  } else {
+    digitalWrite(RELAY_PIN, LOW);  // Выключение насоса
+  }
+  
+  delay(2000);  // Пауза между измерениями
+}
